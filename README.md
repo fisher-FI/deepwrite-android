@@ -129,6 +129,8 @@ ANDROID_SDK_ROOT=/path/to/sdk bash build.sh
 
 > ⚠️ 仍然需要一份上游 DeepWrite 的 **Web 产物**（`out-web`：renderer + main + server*.mjs + node_modules）。
 > 本仓库不含它——那是上游桌面端构建出来的东西。
+>
+> **安全提醒**：局域网服务示例口令 `deepwrite` 仅供自检，不要用作长期密码；请在 `start-sync.cmd` 中换成独立强口令。同步服务使用明文 HTTP，只限可信局域网，切勿公网暴露。
 
 ## 配套：局域网自建 WebDAV
 
