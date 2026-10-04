@@ -70,3 +70,67 @@ APK 约 50 MB，装完占空间 200 MB 上下。
 ---
 
 本仓库只放 **Android 外壳**与打包定义，**不含 DeepWrite 本体源码**。
+
+---
+
+# 本地定制（fisher-FI fork）
+
+> 本 fork 在原版基础上加了两处**行为补丁**，目标是让「双端同步」在**局域网自建 WebDAV**
+> 上真正跑通。补丁由 `tools/apply-customizations.py` 在打包流程中自动应用。
+
+## 为什么需要
+
+原版手机端有两条路都走不通（详见 `DeepWrite-Android-1.5.19_安装说明.md`）：
+
+| 问题 | 现象 | 根因 |
+| --- | --- | --- |
+| 传输层断链 | 点「连接网盘」报「连接网盘失败。」 | 移植版 electron 兼容层只有 `net.fetch`，**没有 `net.request`**；而 main bundle 传的 `electronDavFetch` 第一句就是 `electron.net.request({...})` |
+| 只认 https | 填 `http://…` 报「请填写有效的 HTTPS 地址…」 | schema 强制 `url.protocol === "https:"`，局域网地址是 http |
+
+## 补了什么
+
+`tools/apply-customizations.py`，作用在 `assets/web/main/index.js`：
+
+```diff
+- new WebDavSyncTransport(config, password, electronDavFetch)
++ new WebDavSyncTransport(config, password)
+```
+
+`WebDavSyncTransport` 的构造函数签名是 `(config, password, request = fetch)`——**默认就是标准 fetch**，传输层内部本来就按 fetch 语义调用它（`redirect: "manual"` 后自己读 status / location 跟跳转）。Node/undici 的 fetch 配 `redirect:"manual"` 会原样返回 3xx，语义完全对得上。
+
+```diff
+- url.protocol === "https:"
++ (url.protocol === "https:" || url.protocol === "http:")
+```
+
+放开 http，用于局域网自建 WebDAV。
+
+## 接入点
+
+补丁在 `tools/fetch-runtime.sh` 的 **④a3** 步执行，位置很关键：
+
+```
+④  拷贝 Web 产物到 assets/web/
+④a 补齐依赖闭包
+④a2 校验 utility
+④a3 应用本地定制补丁   ← 在这里
+④b 生成资产清单         ← 必须在这之前
+```
+
+`assets/manifest.json` 按**文件字节数**登记每个文件，`RuntimeInstaller` 靠它解压。
+改晚了指纹就对不上，文件永远落不到设备上。所以补丁必须卡在清单生成之前。
+
+## 构建
+
+```bash
+bash tools/fetch-runtime.sh     # 拉运行时 + 组织 assets（含定制补丁）
+ANDROID_SDK_ROOT=/path/to/sdk bash build.sh
+```
+
+> ⚠️ 仍然需要一份上游 DeepWrite 的 **Web 产物**（`out-web`：renderer + main + server*.mjs + node_modules）。
+> 本仓库不含它——那是上游桌面端构建出来的东西。
+
+## 配套：局域网自建 WebDAV
+
+手机连电脑的完整做法见 `docs/局域网同步.md`。
+

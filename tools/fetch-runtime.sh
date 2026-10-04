@@ -168,6 +168,11 @@ cat > "$APKROOT/assets/runtime/version.json" <<JSON
 }
 JSON
 
+# 本地定制：改 assets/web/main/index.js（去 electronDavFetch 第三参 + 允许 http）。
+# ⚠️ 必须在生成清单之前 —— 清单按文件字节数登记，改晚了指纹就对不上。
+echo "④a3 应用本地定制补丁"
+python3 "$ROOT/tools/apply-customizations.py" "$APKROOT"
+
 # 资产清单：Java 端按它解压并报进度。
 # 不靠 AssetManager.list 猜目录还是文件 —— 空目录和文件在它眼里长得一样。
 echo "④b 生成资产清单"
